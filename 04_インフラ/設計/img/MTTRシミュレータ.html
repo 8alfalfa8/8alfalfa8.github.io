@@ -1,0 +1,177 @@
+<style>
+.ph-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px;}
+.ph-title{font-size:14px;font-weight:500;margin-bottom:12px;}
+.ctl-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;}
+.ctl-lbl{min-width:140px;color:var(--color-text-secondary);}
+.ctl-val{min-width:38px;text-align:right;font-weight:500;color:var(--color-text-primary);}
+.sum-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem;}
+.s-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.8rem;}
+.s-num{font-size:18px;font-weight:500;margin:4px 0 0;}
+.s-lbl{font-size:11px;color:var(--color-text-secondary);}
+.bar-track{height:10px;border-radius:5px;background:var(--color-background-secondary);overflow:hidden;margin:6px 0 2px;}
+.bar-fill{height:100%;border-radius:5px;transition:width .3s;}
+.phase-label{font-size:11px;color:var(--color-text-tertiary);}
+.improvement-badge{font-size:11px;padding:2px 8px;border-radius:8px;font-weight:500;margin-left:8px;}
+</style>
+
+<div class="sum-grid" id="summary"></div>
+
+<!-- Phase 1: 検知 -->
+<div class="ph-card">
+  <div class="ph-title" style="color:var(--color-text-danger);">フェーズ 1 — 検知</div>
+  <div class="ctl-row">
+    <span class="ctl-lbl">アラート遅延（分）</span>
+    <input type="range" min="1" max="30" value="15" step="1" id="d-alert" style="flex:1" oninput="render()">
+    <span class="ctl-val" id="v-d-alert">15</span>
+  </div>
+  <div class="ctl-row">
+    <span class="ctl-lbl">オンコール通知速度</span>
+    <input type="range" min="1" max="20" value="10" step="1" id="d-notify" style="flex:1" oninput="render()">
+    <span class="ctl-val" id="v-d-notify">10</span>
+  </div>
+  <div class="bar-track"><div class="bar-fill" id="bar-detect" style="background:#E24B4A;"></div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span class="phase-label">検知合計: <span id="total-detect" style="font-weight:500;color:var(--color-text-primary);">—</span></span>
+    <span class="improvement-badge" id="badge-detect" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">—</span>
+  </div>
+</div>
+
+<!-- Phase 2: 診断 -->
+<div class="ph-card">
+  <div class="ph-title" style="color:var(--color-text-warning);">フェーズ 2 — 診断</div>
+  <div class="ctl-row">
+    <span class="ctl-lbl">ログ/トレース検索（分）</span>
+    <input type="range" min="2" max="60" value="30" step="1" id="d-log" style="flex:1" oninput="render()">
+    <span class="ctl-val" id="v-d-log">30</span>
+  </div>
+  <div class="ctl-row">
+    <span class="ctl-lbl">原因特定・意思決定（分）</span>
+    <input type="range" min="5" max="60" value="30" step="1" id="d-root" style="flex:1" oninput="render()">
+    <span class="ctl-val" id="v-d-root">30</span>
+  </div>
+  <div class="ctl-row">
+    <span class="ctl-lbl">エスカレーション（分）</span>
+    <input type="range" min="0" max="30" value="10" step="1" id="d-esc" style="flex:1" oninput="render()">
+    <span class="ctl-val" id="v-d-esc">10</span>
+  </div>
+  <div class="bar-track"><div class="bar-fill" id="bar-diag" style="background:#EF9F27;"></div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span class="phase-label">診断合計: <span id="total-diag" style="font-weight:500;color:var(--color-text-primary);">—</span></span>
+    <span class="improvement-badge" id="badge-diag" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">—</span>
+  </div>
+</div>
+
+<!-- Phase 3: 復旧 -->
+<div class="ph-card">
+  <div class="ph-title" style="color:var(--color-text-success);">フェーズ 3 — 復旧</div>
+  <div class="ctl-row">
+    <span class="ctl-lbl">フェイルオーバー/切替（分）</span>
+    <input type="range" min="1" max="60" value="20" step="1" id="d-fo" style="flex:1" oninput="render()">
+    <span class="ctl-val" id="v-d-fo">20</span>
+  </div>
+  <div class="ctl-row">
+    <span class="ctl-lbl">動作確認・サービス再開（分）</span>
+    <input type="range" min="2" max="30" value="15" step="1" id="d-verify" style="flex:1" oninput="render()">
+    <span class="ctl-val" id="v-d-verify">15</span>
+  </div>
+  <div class="bar-track"><div class="bar-fill" id="bar-recv" style="background:#1D9E75;"></div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span class="phase-label">復旧合計: <span id="total-recv" style="font-weight:500;color:var(--color-text-primary);">—</span></span>
+    <span class="improvement-badge" id="badge-recv" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">—</span>
+  </div>
+</div>
+
+<div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:8px;">
+  <button onclick="applyPreset('before')">改善前の典型値にリセット</button>
+  <button onclick="applyPreset('after')">改善後の目標値を適用</button>
+  <button onclick="sendPrompt('オブザーバビリティ（Prometheus/Grafana/OpenTelemetry）の導入方法を教えて')">オブザーバビリティ導入 ↗</button>
+  <button onclick="sendPrompt('インフラのIaCとGitOpsによる自動復旧設計を教えて')">IaC・GitOps設計 ↗</button>
+</div>
+
+<script>
+var baseline = { alert:15, notify:10, log:30, root:30, esc:10, fo:20, verify:15 };
+
+function getVal(id){ return parseInt(document.getElementById(id).value); }
+function setVal(id, v){
+  document.getElementById(id).value = v;
+  document.getElementById('v-'+id).textContent = v;
+}
+
+function fmt(m){
+  if(m < 60) return m + '分';
+  return (m/60).toFixed(1) + '時間';
+}
+
+function pctChange(curr, base){
+  if(base === 0) return 0;
+  return Math.round((curr - base) / base * 100);
+}
+
+function badgeHtml(pct){
+  if(pct === 0) return { txt: '変化なし', style: 'background:var(--color-background-secondary);color:var(--color-text-secondary)' };
+  if(pct < 0) return { txt: Math.abs(pct)+'% 削減', style: 'background:var(--color-background-success);color:var(--color-text-success)' };
+  return { txt: '+'+pct+'% 増加', style: 'background:var(--color-background-danger);color:var(--color-text-danger)' };
+}
+
+function render(){
+  var ids = ['alert','notify','log','root','esc','fo','verify'];
+  ids.forEach(function(id){
+    document.getElementById('v-d-'+id).textContent = getVal('d-'+id);
+  });
+
+  var detect = getVal('d-alert') + getVal('d-notify');
+  var diag   = getVal('d-log')   + getVal('d-root') + getVal('d-esc');
+  var recv   = getVal('d-fo')    + getVal('d-verify');
+  var total  = detect + diag + recv;
+
+  var baseDetect = baseline.alert + baseline.notify;
+  var baseDiag   = baseline.log + baseline.root + baseline.esc;
+  var baseRecv   = baseline.fo + baseline.verify;
+  var baseTotal  = baseDetect + baseDiag + baseRecv;
+
+  var maxPhase = Math.max(detect, diag, recv, 1);
+
+  document.getElementById('bar-detect').style.width = (detect/maxPhase*100).toFixed(1)+'%';
+  document.getElementById('bar-diag').style.width   = (diag/maxPhase*100).toFixed(1)+'%';
+  document.getElementById('bar-recv').style.width   = (recv/maxPhase*100).toFixed(1)+'%';
+
+  document.getElementById('total-detect').textContent = fmt(detect);
+  document.getElementById('total-diag').textContent   = fmt(diag);
+  document.getElementById('total-recv').textContent   = fmt(recv);
+
+  var b1 = badgeHtml(pctChange(detect, baseDetect));
+  var b2 = badgeHtml(pctChange(diag,   baseDiag));
+  var b3 = badgeHtml(pctChange(recv,   baseRecv));
+  var bt = badgeHtml(pctChange(total,  baseTotal));
+
+  document.getElementById('badge-detect').textContent = b1.txt;
+  document.getElementById('badge-detect').style.cssText = b1.style+';font-size:11px;padding:2px 8px;border-radius:8px;font-weight:500;margin-left:8px;';
+  document.getElementById('badge-diag').textContent   = b2.txt;
+  document.getElementById('badge-diag').style.cssText = b2.style+';font-size:11px;padding:2px 8px;border-radius:8px;font-weight:500;margin-left:8px;';
+  document.getElementById('badge-recv').textContent   = b3.txt;
+  document.getElementById('badge-recv').style.cssText = b3.style+';font-size:11px;padding:2px 8px;border-radius:8px;font-weight:500;margin-left:8px;';
+
+  var bottleneck = detect >= diag && detect >= recv ? '検知フェーズ' : diag >= recv ? '診断フェーズ' : '復旧フェーズ';
+  var totalColor = total < baseTotal ? 'var(--color-text-success)' : total > baseTotal ? 'var(--color-text-danger)' : 'var(--color-text-primary)';
+
+  document.getElementById('summary').innerHTML =
+    '<div class="s-card"><div class="s-lbl">MTTR 合計</div><div class="s-num" style="color:'+totalColor+'">'+fmt(total)+'</div></div>'+
+    '<div class="s-card"><div class="s-lbl">ベースライン比</div><div class="s-num" style="color:'+totalColor+'">'+bt.txt+'</div></div>'+
+    '<div class="s-card"><div class="s-lbl">最大ボトルネック</div><div class="s-num" style="font-size:14px;">'+bottleneck+'</div></div>'+
+    '<div class="s-card"><div class="s-lbl">ベースライン</div><div class="s-num" style="color:var(--color-text-secondary)">'+fmt(baseTotal)+'</div></div>';
+}
+
+function applyPreset(type){
+  if(type === 'before'){
+    setVal('d-alert',15); setVal('d-notify',10);
+    setVal('d-log',30);   setVal('d-root',30); setVal('d-esc',10);
+    setVal('d-fo',20);    setVal('d-verify',15);
+  } else {
+    setVal('d-alert',3);  setVal('d-notify',2);
+    setVal('d-log',5);    setVal('d-root',10); setVal('d-esc',3);
+    setVal('d-fo',5);     setVal('d-verify',5);
+  }
+  render();
+}
+render();
+</script>
