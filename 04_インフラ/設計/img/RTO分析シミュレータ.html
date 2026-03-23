@@ -1,0 +1,170 @@
+<style>
+.sc-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px;}
+.sc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.sc-title{font-size:14px;font-weight:500;color:var(--color-text-primary);}
+.sc-badge{font-size:11px;padding:2px 10px;border-radius:10px;font-weight:500;}
+.sc-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;}
+.sc-lbl{min-width:80px;color:var(--color-text-secondary);}
+.sc-val{min-width:44px;text-align:right;font-weight:500;color:var(--color-text-primary);}
+.bar-track{flex:1;height:6px;border-radius:3px;background:var(--color-background-secondary);overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;}
+.rto-total{display:flex;align-items:baseline;gap:8px;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--color-border-tertiary);}
+.rto-num{font-size:22px;font-weight:500;}
+.rto-lbl{font-size:12px;color:var(--color-text-secondary);}
+.verdict{font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;}
+.sc-sel{font-size:12px;padding:3px 6px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);}
+.summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.5rem;}
+.s-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.8rem;}
+.s-num{font-size:20px;font-weight:500;color:var(--color-text-primary);margin:4px 0 0;}
+.s-lbl{font-size:11px;color:var(--color-text-secondary);}
+</style>
+
+<div class="summary-grid" id="summary"></div>
+
+<div id="scenarios"></div>
+
+<div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:8px;">
+  <button onclick="sendPrompt('各RTOシナリオに対応した冗長構成と自動化設計を教えて')">設計改善策を聞く ↗</button>
+  <button onclick="sendPrompt('RTOのDR訓練でシナリオごとに実測する方法を教えて')">DR訓練の実測方法 ↗</button>
+</div>
+
+<script>
+var scenarios = [
+  {
+    id:'s1', name:'単一サーバー障害', category:'ハードウェア',
+    catColor:'danger',
+    detect:5, decide:10, recover:20,
+    targetRto:60,
+    detectMax:30, decideMax:30, recoverMax:120,
+    notes:'自動フェイルオーバーなしの場合。手動切替で最大30分かかるケースも'
+  },
+  {
+    id:'s2', name:'DBコアプロセス異常終了', category:'ソフトウェア',
+    catColor:'warning',
+    detect:3, decide:15, recover:25,
+    targetRto:30,
+    detectMax:30, decideMax:30, recoverMax:120,
+    notes:'再起動で復旧できるか、データ整合性確認が必要かで大きく変わる'
+  },
+  {
+    id:'s3', name:'データセンター電源断', category:'ファシリティ',
+    catColor:'danger',
+    detect:2, decide:5, recover:180,
+    targetRto:120,
+    detectMax:30, decideMax:30, recoverMax:360,
+    notes:'DRサイトへの切替が必要。ネットワーク・DNS伝播を含む'
+  },
+  {
+    id:'s4', name:'ネットワーク経路障害', category:'ネットワーク',
+    catColor:'warning',
+    detect:8, decide:20, recover:30,
+    targetRto:60,
+    detectMax:30, decideMax:30, recoverMax:120,
+    notes:'BGPルーティング切替か、ISP対応待ちかで大きく異なる'
+  },
+  {
+    id:'s5', name:'ランサムウェア感染', category:'セキュリティ',
+    catColor:'danger',
+    detect:60, decide:120, recover:480,
+    targetRto:240,
+    detectMax:240, decideMax:240, recoverMax:1440,
+    notes:'封じ込め・forensics・クリーンバックアップからの復旧が必要'
+  }
+];
+
+function fmt(m) {
+  if (m < 60) return m + '分';
+  return (m / 60).toFixed(1) + '時間';
+}
+
+function catStyle(c) {
+  if (c === 'danger') return 'background:var(--color-background-danger);color:var(--color-text-danger)';
+  if (c === 'warning') return 'background:var(--color-background-warning);color:var(--color-text-warning)';
+  return 'background:var(--color-background-info);color:var(--color-text-info)';
+}
+
+function barColor(phase) {
+  if (phase === 'detect') return '#E24B4A';
+  if (phase === 'decide') return '#EF9F27';
+  return '#1D9E75';
+}
+
+function render() {
+  var maxRto = 0, breachCount = 0;
+  scenarios.forEach(function(s) {
+    var total = parseInt(document.getElementById(s.id+'-detect').value) +
+                parseInt(document.getElementById(s.id+'-decide').value) +
+                parseInt(document.getElementById(s.id+'-recover').value);
+    if (total > maxRto) maxRto = total;
+    if (total > s.targetRto) breachCount++;
+  });
+
+  document.getElementById('summary').innerHTML =
+    '<div class="s-card"><div class="s-lbl">シナリオ数</div><div class="s-num">'+scenarios.length+'</div></div>'+
+    '<div class="s-card"><div class="s-lbl">最大 RTO</div><div class="s-num">'+fmt(maxRto)+'</div></div>'+
+    '<div class="s-card"><div class="s-lbl">目標超過シナリオ</div><div class="s-num" style="color:var(--color-text-'+(breachCount>0?'danger':'success')+'">'+breachCount+'件</div></div>';
+
+  scenarios.forEach(function(s) {
+    var d = parseInt(document.getElementById(s.id+'-detect').value);
+    var j = parseInt(document.getElementById(s.id+'-decide').value);
+    var r = parseInt(document.getElementById(s.id+'-recover').value);
+    var total = d + j + r;
+    var over = total > s.targetRto;
+    var pctD = Math.min(100, d / (s.detectMax) * 100);
+    var pctJ = Math.min(100, j / (s.decideMax) * 100);
+    var pctR = Math.min(100, r / (s.recoverMax) * 100);
+
+    document.getElementById(s.id+'-total').textContent = fmt(total);
+    document.getElementById(s.id+'-verdict').textContent = over ? '目標超過' : '目標内';
+    document.getElementById(s.id+'-verdict').style.cssText = over
+      ? 'font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;background:var(--color-background-danger);color:var(--color-text-danger)'
+      : 'font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;background:var(--color-background-success);color:var(--color-text-success)';
+    document.getElementById(s.id+'-bar-d').style.width = pctD.toFixed(1)+'%';
+    document.getElementById(s.id+'-bar-j').style.width = pctJ.toFixed(1)+'%';
+    document.getElementById(s.id+'-bar-r').style.width = pctR.toFixed(1)+'%';
+    document.getElementById(s.id+'-dv').textContent = d+'分';
+    document.getElementById(s.id+'-jv').textContent = j+'分';
+    document.getElementById(s.id+'-rv').textContent = r+'分';
+  });
+}
+
+function buildUI() {
+  document.getElementById('scenarios').innerHTML = scenarios.map(function(s) {
+    return '<div class="sc-card">'+
+      '<div class="sc-header">'+
+        '<div style="display:flex;align-items:center;gap:8px;">'+
+          '<span class="sc-title">'+s.name+'</span>'+
+          '<span class="sc-badge" style="'+catStyle(s.catColor)+'">'+s.category+'</span>'+
+        '</div>'+
+        '<span class="verdict" id="'+s.id+'-verdict"></span>'+
+      '</div>'+
+      '<div class="sc-row">'+
+        '<span class="sc-lbl">検知・通報</span>'+
+        '<input type="range" min="1" max="'+s.detectMax+'" value="'+s.detect+'" step="1" id="'+s.id+'-detect" style="flex:1" oninput="render()">'+
+        '<span class="sc-val" id="'+s.id+'-dv">'+s.detect+'分</span>'+
+      '</div>'+
+      '<div class="bar-track" style="margin:-4px 0 8px 88px;"><div class="bar-fill" id="'+s.id+'-bar-d" style="background:#E24B4A;width:0%"></div></div>'+
+      '<div class="sc-row">'+
+        '<span class="sc-lbl">判断・切替</span>'+
+        '<input type="range" min="1" max="'+s.decideMax+'" value="'+s.decide+'" step="1" id="'+s.id+'-decide" style="flex:1" oninput="render()">'+
+        '<span class="sc-val" id="'+s.id+'-jv">'+s.decide+'分</span>'+
+      '</div>'+
+      '<div class="bar-track" style="margin:-4px 0 8px 88px;"><div class="bar-fill" id="'+s.id+'-bar-j" style="background:#EF9F27;width:0%"></div></div>'+
+      '<div class="sc-row">'+
+        '<span class="sc-lbl">復旧・確認</span>'+
+        '<input type="range" min="1" max="'+s.recoverMax+'" value="'+s.recover+'" step="1" id="'+s.id+'-recover" style="flex:1" oninput="render()">'+
+        '<span class="sc-val" id="'+s.id+'-rv">'+s.recover+'分</span>'+
+      '</div>'+
+      '<div class="bar-track" style="margin:-4px 0 8px 88px;"><div class="bar-fill" id="'+s.id+'-bar-r" style="background:#1D9E75;width:0%"></div></div>'+
+      '<div class="rto-total">'+
+        '<span class="rto-num" id="'+s.id+'-total">—</span>'+
+        '<span class="rto-lbl">合計 RTO（目標: '+fmt(s.targetRto)+'）</span>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:6px;">'+s.notes+'</div>'+
+    '</div>';
+  }).join('');
+  render();
+}
+
+buildUI();
+</script>
