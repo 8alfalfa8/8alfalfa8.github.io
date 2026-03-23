@@ -1,0 +1,152 @@
+<style>
+.eb-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem;margin-bottom:12px;}
+.eb-metric{font-size:22px;font-weight:500;color:var(--color-text-primary);margin:4px 0 0;}
+.eb-label{font-size:12px;color:var(--color-text-secondary);}
+.eb-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem;}
+.eb-bar-track{height:20px;border-radius:10px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);overflow:hidden;margin:8px 0;}
+.eb-bar-fill{height:100%;border-radius:10px;transition:width .4s,background .4s;}
+.eb-event{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);}
+.eb-event:last-child{border-bottom:none;}
+.eb-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;}
+.eb-badge-out{background:var(--color-background-danger);color:var(--color-text-danger);}
+.eb-badge-rel{background:var(--color-background-info);color:var(--color-text-info);}
+.eb-badge-ok{background:var(--color-background-success);color:var(--color-text-success);}
+.eb-status{padding:10px 16px;border-radius:var(--border-radius-md);font-size:13px;font-weight:500;margin-bottom:1rem;text-align:center;}
+.eb-status-ok{background:var(--color-background-success);color:var(--color-text-success);}
+.eb-status-warn{background:var(--color-background-warning);color:var(--color-text-warning);}
+.eb-status-danger{background:var(--color-background-danger);color:var(--color-text-danger);}
+.ctrl-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;}
+.ctrl-label{min-width:120px;color:var(--color-text-secondary);}
+.ctrl-val{min-width:52px;text-align:right;font-weight:500;color:var(--color-text-primary);}
+.add-btn{font-size:12px;padding:4px 12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;margin-right:6px;}
+.add-btn:hover{background:var(--color-background-secondary);}
+</style>
+
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-end;">
+  <div>
+    <div class="ctrl-row" style="margin-bottom:6px;">
+      <span class="ctrl-label">SLO 目標値</span>
+      <input type="range" min="990" max="9999" value="9990" id="slo-slider" style="width:160px;" oninput="recalc()">
+      <span class="ctrl-val" id="slo-disp">99.90%</span>
+    </div>
+    <div class="ctrl-row" style="margin-bottom:6px;">
+      <span class="ctrl-label">期間（日）</span>
+      <input type="range" min="7" max="30" value="30" id="period-slider" style="width:160px;" oninput="recalc()">
+      <span class="ctrl-val" id="period-disp">30日</span>
+    </div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">SLI 実測値</span>
+      <input type="range" min="980" max="10000" value="9940" id="sli-slider" style="width:160px;" oninput="recalc()">
+      <span class="ctrl-val" id="sli-disp">99.40%</span>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    <span style="font-size:12px;color:var(--color-text-secondary);">障害・リリースを追加</span>
+    <div>
+      <button class="add-btn" onclick="addEvent('outage')">障害追加</button>
+      <button class="add-btn" onclick="addEvent('release')">リリース追加</button>
+      <button class="add-btn" onclick="clearEvents()">リセット</button>
+    </div>
+  </div>
+</div>
+
+<div id="status-bar" class="eb-status eb-status-ok">バジェット残量: 十分 — リリース推進フェーズ</div>
+
+<div class="eb-grid">
+  <div class="eb-card">
+    <div class="eb-label">月間許容停止時間</div>
+    <div class="eb-metric" id="budget-total">—</div>
+  </div>
+  <div class="eb-card">
+    <div class="eb-label">消費済みバジェット</div>
+    <div class="eb-metric" id="budget-used">—</div>
+  </div>
+  <div class="eb-card">
+    <div class="eb-label">残存バジェット</div>
+    <div class="eb-metric" id="budget-remain">—</div>
+  </div>
+  <div class="eb-card">
+    <div class="eb-label">消費率</div>
+    <div class="eb-metric" id="budget-pct">—</div>
+  </div>
+</div>
+
+<div style="margin-bottom:1.5rem;">
+  <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:4px;">バジェット消費率</div>
+  <div class="eb-bar-track">
+    <div class="eb-bar-fill" id="budget-bar" style="width:0%;background:var(--color-background-success);"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-tertiary);">
+    <span>0%</span><span>リリース検討ライン 50%</span><span>凍結ライン 100%</span>
+  </div>
+</div>
+
+<div style="font-size:13px;font-weight:500;margin-bottom:8px;color:var(--color-text-primary);">イベントログ</div>
+<div id="event-log" style="font-size:13px;color:var(--color-text-secondary);padding:8px 0;">イベントなし — 障害やリリースを追加してください</div>
+
+<script>
+var events=[];
+var outageCount=0,releaseCount=0;
+function getSLO(){return parseInt(document.getElementById('slo-slider').value)/10000;}
+function getSLI(){return parseInt(document.getElementById('sli-slider').value)/10000;}
+function getPeriod(){return parseInt(document.getElementById('period-slider').value);}
+function recalc(){
+  var slo=getSLO(), sli=getSLI(), days=getPeriod();
+  var totalMin=days*24*60;
+  var budgetMin=totalMin*(1-slo);
+  var sloDisp=(slo*100).toFixed(2)+'%';
+  var sliDisp=(sli*100).toFixed(2)+'%';
+  document.getElementById('slo-disp').textContent=sloDisp;
+  document.getElementById('sli-disp').textContent=sliDisp;
+  document.getElementById('period-disp').textContent=days+'日';
+  var usedMin=totalMin*(slo-sli);
+  if(usedMin<0)usedMin=0;
+  var eventUsed=events.filter(e=>e.type==='outage').reduce(function(a,b){return a+b.min;},0);
+  var totalUsed=usedMin+eventUsed;
+  var remain=budgetMin-totalUsed;
+  var pct=budgetMin>0?Math.min(totalUsed/budgetMin*100,999):0;
+  document.getElementById('budget-total').textContent=fmtMin(budgetMin);
+  document.getElementById('budget-used').textContent=fmtMin(totalUsed);
+  document.getElementById('budget-remain').textContent=remain>=0?fmtMin(remain):'超過 '+fmtMin(-remain);
+  document.getElementById('budget-pct').textContent=Math.round(pct)+'%';
+  var bar=document.getElementById('budget-bar');
+  var fillPct=Math.min(pct,100);
+  bar.style.width=fillPct+'%';
+  if(pct<50){bar.style.background='var(--color-background-success)';}
+  else if(pct<100){bar.style.background='var(--color-background-warning)';}
+  else{bar.style.background='var(--color-background-danger)';}
+  var sb=document.getElementById('status-bar');
+  if(pct<50){sb.className='eb-status eb-status-ok';sb.textContent='バジェット残量: 十分 — リリース推進フェーズ（消費率 '+Math.round(pct)+'%）';}
+  else if(pct<80){sb.className='eb-status eb-status-warn';sb.textContent='注意: バジェット消費 '+Math.round(pct)+'% — リリース頻度を見直し、信頼性改善を優先';}
+  else if(pct<100){sb.className='eb-status eb-status-danger';sb.textContent='警告: バジェット消費 '+Math.round(pct)+'% — 新規リリース停止を検討、障害対応最優先';}
+  else{sb.className='eb-status eb-status-danger';sb.textContent='バジェット枯渇: リリース凍結 — 信頼性改善のみ実施。SLO違反状態';}
+  renderLog();
+}
+function fmtMin(m){
+  if(m<1)return Math.round(m*60)+'秒';
+  if(m<60)return m.toFixed(1)+'分';
+  return (m/60).toFixed(1)+'時間';
+}
+function addEvent(type){
+  if(type==='outage'){
+    outageCount++;
+    var mins=[15,30,45,60,90,120][Math.floor(Math.random()*6)];
+    events.push({type:'outage',label:'障害 #'+outageCount,min:mins,desc:mins+'分の停止'});
+  } else {
+    releaseCount++;
+    events.push({type:'release',label:'リリース #'+releaseCount,min:0,desc:'デプロイ実施'});
+  }
+  recalc();
+}
+function clearEvents(){events=[];outageCount=0;releaseCount=0;recalc();}
+function renderLog(){
+  var el=document.getElementById('event-log');
+  if(events.length===0){el.innerHTML='<span style="color:var(--color-text-tertiary)">イベントなし — 障害やリリースを追加してください</span>';return;}
+  el.innerHTML=events.slice().reverse().map(function(e){
+    var badge=e.type==='outage'?'<span class="eb-badge eb-badge-out">障害</span>':'<span class="eb-badge eb-badge-rel">リリース</span>';
+    var consume=e.type==='outage'?'<span style="color:var(--color-text-danger);font-size:12px;">-'+fmtMin(e.min)+'</span>':'<span style="color:var(--color-text-success);font-size:12px;">バジェット消費なし</span>';
+    return '<div class="eb-event">'+badge+'<span style="flex:1;color:var(--color-text-primary);">'+e.label+'</span><span style="color:var(--color-text-secondary);font-size:12px;">'+e.desc+'</span>'+consume+'</div>';
+  }).join('');
+}
+recalc();
+</script>
