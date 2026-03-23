@@ -1,0 +1,163 @@
+<style>
+.rpo-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:12px;}
+.spec-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
+.spec-row:last-child{border-bottom:none;}
+.spec-key{color:var(--color-text-secondary);min-width:160px;}
+.spec-val{font-weight:500;color:var(--color-text-primary);text-align:right;}
+.tech-badge{display:inline-block;font-size:11px;padding:2px 10px;border-radius:10px;font-weight:500;margin-bottom:8px;}
+.warn-box{background:var(--color-background-warning);color:var(--color-text-warning);border-radius:var(--border-radius-md);padding:8px 12px;font-size:12px;margin-top:10px;}
+.info-box{background:var(--color-background-info);color:var(--color-text-info);border-radius:var(--border-radius-md);padding:8px 12px;font-size:12px;margin-top:10px;}
+.summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.5rem;}
+.s-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.8rem;}
+.s-num{font-size:18px;font-weight:500;color:var(--color-text-primary);margin:4px 0 0;}
+.s-lbl{font-size:11px;color:var(--color-text-secondary);}
+</style>
+
+<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin-bottom:1.5rem;">
+  <div style="flex:1;min-width:200px;">
+    <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px;">RPO 目標値</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <input type="range" id="rpo-slider" min="0" max="7" value="2" step="1" style="flex:1;" oninput="render()">
+      <span id="rpo-disp" style="font-size:18px;font-weight:500;min-width:80px;color:var(--color-text-primary);">1時間</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-tertiary);margin-top:2px;">
+      <span>0秒</span><span>15分</span><span>1時間</span><span>4時間</span><span>8時間</span><span>24時間</span><span>3日</span><span>7日</span>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px;">システム種別</div>
+    <select id="sys-sel" style="font-size:13px;padding:4px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);" onchange="render()">
+      <option value="db">RDB（トランザクションDB）</option>
+      <option value="file">ファイルサーバー</option>
+      <option value="nosql">NoSQL / オブジェクトストレージ</option>
+      <option value="vm">仮想マシン / VM</option>
+    </select>
+  </div>
+</div>
+
+<div class="summary-grid" id="summary-cards"></div>
+<div id="design-card"></div>
+<div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:8px;">
+  <button onclick="sendPrompt('3-2-1バックアップルールをインフラ設計に組み込む方法を教えて')">3-2-1ルールの実装 ↗</button>
+  <button onclick="sendPrompt('バックアップの復旧テスト（リストア検証）の進め方を教えて')">リストア検証の方法 ↗</button>
+  <button onclick="sendPrompt('データレプリケーションの同期・非同期の選択基準を教えて')">同期 vs 非同期の選択 ↗</button>
+</div>
+
+<script>
+var rpoLabels = ['0秒（RPO=0）','15分','1時間','4時間','8時間','24時間','3日','7日'];
+var rpoMinutes = [0, 15, 60, 240, 480, 1440, 4320, 10080];
+
+var designs = {
+  db: [
+    { tech:'同期レプリケーション', badge:'danger', badgeTxt:'最高コスト',
+      primary:'同期レプリケーション（ストリーミング）', freq:'トランザクション単位・リアルタイム',
+      tool:'PostgreSQL Synchronous Replication / MySQL Group Replication',
+      retention:'WAL / binlog を無制限保持（ディスク監視必須）',
+      warn:'書き込みレイテンシ増大に注意。レプリカのネットワーク遅延がプライマリに影響する' },
+    { tech:'非同期レプリケーション + WAL', badge:'coral', badgeTxt:'高コスト',
+      primary:'非同期ストリーミングレプリケーション', freq:'秒〜分単位（ラグ監視必須）',
+      tool:'pg_basebackup + WAL archive / AWS RDS Multi-AZ',
+      retention:'WAL を RPO 分以上保持（例: 30分 → 1時間分を保持）',
+      warn:'レプリカラグが RPO を超えていないか pg_stat_replication で常時監視' },
+    { tech:'非同期レプリケーション', badge:'coral', badgeTxt:'高コスト',
+      primary:'非同期レプリケーション + 頻度スナップショット', freq:'15〜30分間隔スナップショット',
+      tool:'AWS RDS 自動バックアップ / Azure Database バックアップ',
+      retention:'最新 7 日分を保持（ポイントインタイムリカバリ有効化）',
+      warn:'スナップショット取得中の I/O 影響を確認。マネージドDB推奨' },
+    { tech:'頻度スナップショット', badge:'amber', badgeTxt:'中コスト',
+      primary:'1〜4時間間隔スナップショット + 増分バックアップ', freq:'1〜4時間ごと',
+      tool:'pg_dump（cron） / mysqldump / xtrabackup',
+      retention:'スナップショット 7 日分 + 増分 30 日分',
+      warn:'論理バックアップは大規模 DB では取得時間が RPO を超える可能性がある' },
+    { tech:'定期スナップショット', badge:'amber', badgeTxt:'中コスト',
+      primary:'4〜8時間間隔スナップショット + 差分バックアップ', freq:'4〜8時間ごと',
+      tool:'クラウドスナップショット（EBS / Azure Disk）',
+      retention:'スナップショット 14 日分',
+      warn:'差分適用にかかる時間も RTO に影響する。リストア試験を定期実施' },
+    { tech:'日次バックアップ', badge:'teal', badgeTxt:'標準',
+      primary:'日次フルバックアップ + 増分バックアップ', freq:'毎日深夜（例: 02:00）',
+      tool:'pg_dump / mysqldump + gzip / Barman / pgBackRest',
+      retention:'フル 4 週間 + 増分 90 日（世代管理）',
+      info:'業務時間外システムや参照系 DB に適している' },
+    { tech:'週次 + 日次バックアップ', badge:'gray', badgeTxt:'低コスト',
+      primary:'日次増分 + 週次フルバックアップ', freq:'日次増分 + 週1回フル',
+      tool:'Barman / pgBackRest / mysqldump + rsync',
+      retention:'フル 4 世代 + 増分 90 日',
+      info:'開発・ステージング環境向け。コールドスタンバイ構成に適している' },
+    { tech:'週次フルバックアップ', badge:'gray', badgeTxt:'最低コスト',
+      primary:'週次フルバックアップのみ', freq:'週1回（例: 日曜深夜）',
+      tool:'pg_dump / mysqldump + オフサイト保管',
+      retention:'フル 4〜8 世代（1〜2ヶ月）',
+      info:'アーカイブ・参照専用システムのみ推奨。本番 DB には非推奨' }
+  ],
+  file: [
+    { tech:'リアルタイム同期', badge:'danger', badgeTxt:'最高コスト', primary:'リアルタイムファイル同期', freq:'変更検知・即時同期', tool:'DRBD / GlusterFS 同期レプリケーション', retention:'変更ログ 7 日分', warn:'ファイル削除・破損も即時同期される点に注意。バージョニング必須' },
+    { tech:'準リアルタイム同期', badge:'coral', badgeTxt:'高コスト', primary:'ほぼリアルタイム同期', freq:'変更検知（rsync 頻度実行）', tool:'rsync + inotify / AWS DataSync', retention:'バージョニング有効（S3）/ スナップショット 7 日', warn:'大量ファイル変更時の帯域消費に注意' },
+    { tech:'頻度同期', badge:'amber', badgeTxt:'中コスト', primary:'1時間間隔同期', freq:'1時間ごと cron', tool:'rsync / AWS DataSync / Azure File Sync', retention:'スナップショット 30 日分', info:'一般業務ファイルサーバーに適している' },
+    { tech:'数時間間隔同期', badge:'amber', badgeTxt:'中コスト', primary:'4時間間隔バックアップ', freq:'4時間ごと', tool:'rsync + cron / Veeam', retention:'増分 30 日 + フル 4 週間', info:'' },
+    { tech:'日2回バックアップ', badge:'teal', badgeTxt:'標準', primary:'1日2回バックアップ', freq:'08:00 / 20:00', tool:'rsync / Duplicati / Veeam', retention:'増分 30 日 + フル 4 週間', info:'' },
+    { tech:'日次バックアップ', badge:'teal', badgeTxt:'標準', primary:'日次バックアップ', freq:'毎日深夜', tool:'rsync + cron / Veeam / Commvault', retention:'フル 4 週間 + 増分 90 日', info:'ファイルサーバーの標準的な設計' },
+    { tech:'週次 + 日次', badge:'gray', badgeTxt:'低コスト', primary:'日次増分 + 週次フル', freq:'日次増分 + 週1フル', tool:'rsync / Duplicati', retention:'フル 8 世代 + 増分 90 日', info:'' },
+    { tech:'週次バックアップ', badge:'gray', badgeTxt:'最低コスト', primary:'週次フルバックアップ', freq:'週1回', tool:'rsync + オフサイト', retention:'フル 4〜8 世代', info:'アーカイブ用途のみ推奨' }
+  ],
+  nosql: [
+    { tech:'マルチリージョン書き込み', badge:'danger', badgeTxt:'最高コスト', primary:'マルチリージョン同期書き込み', freq:'リアルタイム', tool:'DynamoDB Global Tables / Cosmos DB マルチ書き込み', retention:'ポイントインタイムリカバリ 35 日', warn:'結果整合性と強整合性の選択がパフォーマンスに影響する' },
+    { tech:'クロスリージョンレプリケーション', badge:'coral', badgeTxt:'高コスト', primary:'非同期クロスリージョンレプリケーション', freq:'秒〜分', tool:'S3 クロスリージョンレプリケーション / MongoDB Atlas Global Clusters', retention:'バージョニング有効 + 90 日', warn:'レプリケーションラグを CloudWatch 等で監視' },
+    { tech:'頻度スナップショット', badge:'amber', badgeTxt:'中コスト', primary:'15〜60分間隔スナップショット', freq:'15〜60分ごと', tool:'DynamoDB PITR / MongoDB Atlas バックアップ', retention:'35 日間のポイントインタイムリカバリ', info:'' },
+    { tech:'数時間スナップショット', badge:'amber', badgeTxt:'中コスト', primary:'4時間間隔スナップショット', freq:'4時間ごと', tool:'ElasticSearch スナップショット / Redis RDB', retention:'スナップショット 30 日分', info:'' },
+    { tech:'8時間スナップショット', badge:'teal', badgeTxt:'標準', primary:'8時間間隔スナップショット', freq:'1日3回', tool:'MongoDB mongodump + cron / Redis RDB', retention:'30 日分', info:'' },
+    { tech:'日次エクスポート', badge:'teal', badgeTxt:'標準', primary:'日次エクスポート', freq:'毎日深夜', tool:'dynamodb export to S3 / mongodump', retention:'S3 に 90 日保持（Glacier 移行可）', info:'マネージドサービスの標準バックアップ' },
+    { tech:'日次 + 週次', badge:'gray', badgeTxt:'低コスト', primary:'日次増分 + 週次フル', freq:'日次 + 週1フル', tool:'mongodump / elasticdump', retention:'フル 4 世代 + 増分 90 日', info:'' },
+    { tech:'週次バックアップ', badge:'gray', badgeTxt:'最低コスト', primary:'週次フルエクスポート', freq:'週1回', tool:'mongodump + S3 / dynamodb export', retention:'フル 4〜8 世代', info:'開発環境のみ推奨' }
+  ],
+  vm: [
+    { tech:'ライブマイグレーション', badge:'danger', badgeTxt:'最高コスト', primary:'ライブマイグレーション + 同期ストレージ', freq:'リアルタイム', tool:'VMware vSphere HA + VSAN / Hyper-V レプリカ（同期）', retention:'スナップショット履歴 7 日分', warn:'ライブマイグレーションのネットワーク帯域を確保。ストレージ側も冗長化必須' },
+    { tech:'VM 非同期レプリケーション', badge:'coral', badgeTxt:'高コスト', primary:'VM 非同期レプリケーション', freq:'秒〜分間隔', tool:'Veeam レプリケーション / Azure Site Recovery / Zerto', retention:'復旧ポイント 72 時間分', warn:'レプリカ側ストレージコストが倍増する点に注意' },
+    { tech:'頻度 VM スナップショット', badge:'amber', badgeTxt:'中コスト', primary:'1時間間隔 VM スナップショット', freq:'1時間ごと', tool:'Veeam Backup & Replication / AWS Backup', retention:'72 時間分 + 30 日保持', info:'' },
+    { tech:'数時間 VM スナップショット', badge:'amber', badgeTxt:'中コスト', primary:'4時間間隔 VM スナップショット', freq:'4時間ごと', tool:'Veeam / Nakivo / AWS Backup', retention:'スナップショット 30 日分', info:'' },
+    { tech:'8時間スナップショット', badge:'teal', badgeTxt:'標準', primary:'8時間間隔スナップショット', freq:'1日3回', tool:'Veeam / Commvault', retention:'30 日保持', info:'' },
+    { tech:'日次 VM バックアップ', badge:'teal', badgeTxt:'標準', primary:'日次 VM イメージバックアップ', freq:'毎日深夜', tool:'Veeam / Nakivo / AWS Backup / Azure Backup', retention:'フル 4 週間 + 増分 90 日', info:'VM バックアップの標準的な設計。世代管理を必ず実装' },
+    { tech:'週次 + 日次', badge:'gray', badgeTxt:'低コスト', primary:'日次増分 + 週次フル VM バックアップ', freq:'日次増分 + 週1フル', tool:'Veeam / Nakivo', retention:'フル 4 世代 + 増分 90 日', info:'' },
+    { tech:'週次フルバックアップ', badge:'gray', badgeTxt:'最低コスト', primary:'週次フル VM イメージ', freq:'週1回', tool:'Veeam / Nakivo + テープ or オフサイト', retention:'フル 4〜8 世代', info:'開発・テスト環境向け' }
+  ]
+};
+
+function badgeStyle(b){
+  var m={danger:'background:var(--color-background-danger);color:var(--color-text-danger)',coral:'background:#FAECE7;color:#993C1D',amber:'background:var(--color-background-warning);color:var(--color-text-warning)',teal:'background:#E1F5EE;color:#0F6E56',gray:'background:var(--color-background-secondary);color:var(--color-text-secondary)'};
+  return m[b]||m.gray;
+}
+
+function render(){
+  var idx = parseInt(document.getElementById('rpo-slider').value);
+  var sys = document.getElementById('sys-sel').value;
+  var rpoMin = rpoMinutes[idx];
+  var rpoLbl = rpoLabels[idx];
+  document.getElementById('rpo-disp').textContent = rpoLbl;
+
+  var d = designs[sys][idx];
+
+  // 保持コスト概算（相対）
+  var costLevels = ['最高','非常に高い','高い','中程度','中程度','標準','低い','最小'];
+  var complexLevels = ['非常に高い','高い','高い','中程度','中程度','低い','低い','最小'];
+
+  document.getElementById('summary-cards').innerHTML =
+    '<div class="s-card"><div class="s-lbl">適用技術</div><div class="s-num" style="font-size:14px;">'+d.tech+'</div></div>'+
+    '<div class="s-card"><div class="s-lbl">相対コスト</div><div class="s-num">'+costLevels[idx]+'</div></div>'+
+    '<div class="s-card"><div class="s-lbl">運用複雑性</div><div class="s-num">'+complexLevels[idx]+'</div></div>';
+
+  var alert = d.warn
+    ? '<div class="warn-box">注意: '+d.warn+'</div>'
+    : (d.info ? '<div class="info-box">補足: '+d.info+'</div>' : '');
+
+  document.getElementById('design-card').innerHTML =
+    '<div class="rpo-card">'+
+      '<div style="margin-bottom:12px;"><span class="tech-badge" style="'+badgeStyle(d.badge)+'">'+d.badgeTxt+'</span></div>'+
+      '<div class="spec-row"><span class="spec-key">バックアップ方式</span><span class="spec-val">'+d.primary+'</span></div>'+
+      '<div class="spec-row"><span class="spec-key">取得頻度</span><span class="spec-val">'+d.freq+'</span></div>'+
+      '<div class="spec-row"><span class="spec-key">推奨ツール</span><span class="spec-val" style="font-size:12px;max-width:300px;text-align:right;">'+d.tool+'</span></div>'+
+      '<div class="spec-row"><span class="spec-key">保持期間・世代管理</span><span class="spec-val" style="font-size:12px;max-width:300px;text-align:right;">'+d.retention+'</span></div>'+
+      alert+
+    '</div>';
+}
+render();
+</script>
