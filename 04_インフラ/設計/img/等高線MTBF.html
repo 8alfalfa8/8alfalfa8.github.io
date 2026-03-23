@@ -1,0 +1,112 @@
+<style>
+.legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;}
+</style>
+
+<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px;display:flex;flex-wrap:wrap;gap:12px;">
+  <span><span class="legend-dot" style="background:#1D9E75;"></span>MTTR 5分</span>
+  <span><span class="legend-dot" style="background:#378ADD;"></span>MTTR 30分</span>
+  <span><span class="legend-dot" style="background:#EF9F27;"></span>MTTR 2時間</span>
+  <span><span class="legend-dot" style="background:#E24B4A;"></span>MTTR 8時間</span>
+</div>
+
+<div style="position:relative;height:280px;">
+  <canvas id="contour-chart"></canvas>
+</div>
+
+<div style="margin-top:1rem;font-size:12px;color:var(--color-text-secondary);">
+  X軸: MTBF（時間）　Y軸: 可用性（%）　横破線: 99.9% / 99.99% ライン
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var mtbfPoints = [];
+for (var h = 10; h <= 2000; h += 20) mtbfPoints.push(h);
+
+var mttrLines = [
+  { mttr: 5/60,   label:'MTTR 5分',   color:'#1D9E75' },
+  { mttr: 30/60,  label:'MTTR 30分',  color:'#378ADD' },
+  { mttr: 2,      label:'MTTR 2時間', color:'#EF9F27' },
+  { mttr: 8,      label:'MTTR 8時間', color:'#E24B4A' },
+];
+
+var datasets = mttrLines.map(function(line) {
+  return {
+    label: line.label,
+    data: mtbfPoints.map(function(mtbf) {
+      return { x: mtbf, y: parseFloat((mtbf / (mtbf + line.mttr) * 100).toFixed(6)) };
+    }),
+    borderColor: line.color,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0.3
+  };
+});
+
+var isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+var gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+var tickColor = isDark ? '#888780' : '#73726c';
+var annColor  = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)';
+
+new Chart(document.getElementById('contour-chart'), {
+  type: 'line',
+  data: { datasets: datasets },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      annotation: {},
+      tooltip: {
+        callbacks: {
+          label: function(c) {
+            return c.dataset.label + ': ' + c.parsed.y.toFixed(4) + '%';
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        min: 0, max: 2000,
+        title: { display: false },
+        grid: { color: gridColor },
+        ticks: { color: tickColor, font: { size: 11 },
+          callback: function(v) { return v + 'h'; }
+        }
+      },
+      y: {
+        min: 98, max: 100.05,
+        grid: { color: gridColor },
+        ticks: {
+          color: tickColor, font: { size: 11 },
+          callback: function(v) { return v.toFixed(2) + '%'; }
+        }
+      }
+    }
+  },
+  plugins: [{
+    afterDraw: function(chart) {
+      var ctx = chart.ctx;
+      var yAxis = chart.scales.y;
+      var xAxis = chart.scales.x;
+      [99.9, 99.99].forEach(function(tgt) {
+        var y = yAxis.getPixelForValue(tgt);
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = annColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(xAxis.left, y);
+        ctx.lineTo(xAxis.right, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = annColor;
+        ctx.font = '11px sans-serif';
+        ctx.fillText(tgt + '%', xAxis.right - 44, y - 4);
+        ctx.restore();
+      });
+    }
+  }]
+});
+</script>
