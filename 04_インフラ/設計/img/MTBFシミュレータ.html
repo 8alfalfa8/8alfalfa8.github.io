@@ -1,0 +1,158 @@
+<style>
+.av-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:1rem 0 1.5rem;}
+.av-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.9rem 1rem;}
+.av-num{font-size:22px;font-weight:500;color:var(--color-text-primary);margin:4px 0 0;line-height:1.2;}
+.av-lbl{font-size:11px;color:var(--color-text-secondary);}
+.ctl-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;}
+.ctl-lbl{min-width:130px;color:var(--color-text-secondary);}
+.ctl-val{min-width:60px;font-weight:500;color:var(--color-text-primary);text-align:right;}
+.tier-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
+.tier-row:last-child{border-bottom:none;}
+.tier-hl{border-radius:var(--border-radius-md);padding:8px 10px;margin:2px 0;background:var(--color-background-info);}
+.tier-name{min-width:68px;font-weight:500;}
+.tier-bar-wrap{flex:1;height:8px;border-radius:4px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);overflow:hidden;}
+.tier-bar{height:100%;border-radius:4px;transition:width .3s,background .3s;}
+.tier-av{min-width:64px;text-align:right;}
+.tier-dt{min-width:80px;text-align:right;color:var(--color-text-secondary);font-size:12px;}
+.formula-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;font-size:13px;margin-bottom:1.2rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.formula-eq{font-weight:500;color:var(--color-text-primary);}
+.formula-note{font-size:12px;color:var(--color-text-secondary);}
+</style>
+
+<div class="formula-box">
+  <span class="formula-eq">可用性 = MTBF ÷ (MTBF + MTTR)</span>
+  <span class="formula-note">MTBF: 平均故障間隔　MTTR: 平均復旧時間</span>
+</div>
+
+<div class="ctl-row">
+  <span class="ctl-lbl">MTBF（時間）</span>
+  <input type="range" min="10" max="2000" value="720" step="10" id="mtbf-sl" style="flex:1" oninput="render()">
+  <span class="ctl-val" id="mtbf-disp">720h</span>
+</div>
+<div class="ctl-row">
+  <span class="ctl-lbl">MTTR（分）</span>
+  <input type="range" min="1" max="480" value="60" step="1" id="mttr-sl" style="flex:1" oninput="render()">
+  <span class="ctl-val" id="mttr-disp">60分</span>
+</div>
+
+<div class="av-grid" id="summary"></div>
+
+<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;">主要 SLO ラインとの比較（現在値を青でハイライト）</div>
+<div id="tier-table"></div>
+
+<div style="margin-top:1.2rem;font-size:12px;color:var(--color-text-secondary);margin-bottom:6px;">可用性を上げる2つのレバー（現在値から目標への感度）</div>
+<div id="sensitivity"></div>
+
+<div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:8px;">
+  <button onclick="sendPrompt('MTBFを延ばすためのインフラ冗長化・予防保守の設計を教えて')">MTBF 延伸設計 ↗</button>
+  <button onclick="sendPrompt('MTTRを改善するためのインフラ設計・運用手順の考え方を教えて')">MTTR 短縮設計 ↗</button>
+  <button onclick="sendPrompt('直列構成と並列構成の可用性計算をシステム設計に使う方法を教えて')">直列・並列の合成可用性 ↗</button>
+</div>
+
+<script>
+var sloTiers = [
+  { label:'99%',    pct:99,      nines:'ツーナイン' },
+  { label:'99.5%',  pct:99.5,    nines:'' },
+  { label:'99.9%',  pct:99.9,    nines:'スリーナイン' },
+  { label:'99.95%', pct:99.95,   nines:'' },
+  { label:'99.99%', pct:99.99,   nines:'フォーナイン' },
+  { label:'99.999%',pct:99.999,  nines:'ファイブナイン' },
+];
+
+function avColor(pct) {
+  if (pct >= 99.99) return '#1D9E75';
+  if (pct >= 99.9)  return '#378ADD';
+  if (pct >= 99.5)  return '#EF9F27';
+  return '#E24B4A';
+}
+
+function fmtDt(minPerYear) {
+  if (minPerYear < 1)   return Math.round(minPerYear * 60) + '秒/年';
+  if (minPerYear < 60)  return minPerYear.toFixed(1) + '分/年';
+  if (minPerYear < 1440) return (minPerYear / 60).toFixed(1) + '時間/年';
+  return (minPerYear / 1440).toFixed(1) + '日/年';
+}
+
+function calcAv(mtbfH, mttrMin) {
+  var mttrH = mttrMin / 60;
+  return mtbfH / (mtbfH + mttrH);
+}
+
+function render() {
+  var mtbf = parseInt(document.getElementById('mtbf-sl').value);
+  var mttr = parseInt(document.getElementById('mttr-sl').value);
+  document.getElementById('mtbf-disp').textContent = mtbf + 'h';
+  document.getElementById('mttr-disp').textContent = mttr + '分';
+
+  var av = calcAv(mtbf, mttr);
+  var avPct = av * 100;
+  var dtYear = (1 - av) * 525600; // minutes per year
+  var dtMonth = (1 - av) * 43800;
+  var failsPerYear = 525600 / (mtbf * 60 + mttr);
+
+  var ninesStr;
+  if (avPct >= 99.999) ninesStr = 'ファイブナイン相当';
+  else if (avPct >= 99.99) ninesStr = 'フォーナイン相当';
+  else if (avPct >= 99.9)  ninesStr = 'スリーナイン相当';
+  else if (avPct >= 99.5)  ninesStr = 'ツーナイン超';
+  else if (avPct >= 99)    ninesStr = 'ツーナイン相当';
+  else ninesStr = 'ワンナイン相当';
+
+  var col = avColor(avPct);
+
+  document.getElementById('summary').innerHTML =
+    '<div class="av-card"><div class="av-lbl">可用性</div><div class="av-num" style="color:'+col+'">'+avPct.toFixed(4)+'%</div></div>'+
+    '<div class="av-card"><div class="av-lbl">月間ダウンタイム</div><div class="av-num">'+fmtDt(dtMonth)+'</div></div>'+
+    '<div class="av-card"><div class="av-lbl">水準</div><div class="av-num" style="font-size:14px;">'+ninesStr+'</div></div>';
+
+  // tier table
+  var maxDt = (1 - 0.99) * 525600;
+  var rows = sloTiers.map(function(t) {
+    var tDt = (1 - t.pct / 100) * 525600;
+    var barW = Math.max(1, tDt / maxDt * 100);
+    var isBelow = avPct >= t.pct;
+    var isHL = Math.abs(avPct - t.pct) < 0.5 ||
+               (avPct >= t.pct && (sloTiers.indexOf(t) === sloTiers.length - 1 ||
+                avPct < sloTiers[sloTiers.indexOf(t)+1].pct));
+    var rowClass = isHL ? 'tier-row tier-hl' : 'tier-row';
+    var nameStyle = isHL ? 'color:var(--color-text-info);min-width:68px;font-weight:500;' : 'min-width:68px;font-weight:500;color:var(--color-text-primary);';
+    var barBg = avColor(t.pct);
+    var opacity = isBelow ? '1' : '0.35';
+    return '<div class="'+rowClass+'">'+
+      '<span style="'+nameStyle+'">'+t.label+'</span>'+
+      '<span style="min-width:72px;font-size:11px;color:var(--color-text-tertiary);">'+t.nines+'</span>'+
+      '<div class="tier-bar-wrap"><div class="tier-bar" style="width:'+barW.toFixed(1)+'%;background:'+barBg+';opacity:'+opacity+'"></div></div>'+
+      '<span class="tier-dt">'+fmtDt(tDt)+'</span>'+
+      '</div>';
+  }).join('');
+  document.getElementById('tier-table').innerHTML = rows;
+
+  // sensitivity: MTBF +2x vs MTTR /2
+  var avMtbf2x = calcAv(mtbf * 2, mttr) * 100;
+  var avMttrH  = calcAv(mtbf, Math.max(1, Math.floor(mttr / 2))) * 100;
+  var dMtbf = avMtbf2x - avPct;
+  var dMttr = avMttrH - avPct;
+
+  function fmtDelta(d) {
+    if (d < 0.0001) return '+ほぼ変化なし';
+    return '+' + d.toFixed(4) + 'pp';
+  }
+  function barLen(d) { return Math.min(100, Math.max(2, d / Math.max(dMtbf, dMttr, 0.001) * 100)).toFixed(1); }
+
+  document.getElementById('sensitivity').innerHTML =
+    '<div style="margin-bottom:8px;">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">'+
+        '<span style="min-width:160px;font-size:12px;color:var(--color-text-secondary);">MTBF を 2倍 ('+mtbf+'h → '+(mtbf*2)+'h)</span>'+
+        '<div class="tier-bar-wrap"><div class="tier-bar" style="width:'+barLen(dMtbf)+'%;background:#1D9E75;"></div></div>'+
+        '<span style="min-width:90px;text-align:right;font-size:12px;font-weight:500;color:var(--color-text-success);">'+fmtDelta(dMtbf)+'</span>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:10px;">'+
+        '<span style="min-width:160px;font-size:12px;color:var(--color-text-secondary);">MTTR を 1/2 ('+mttr+'分 → '+Math.max(1,Math.floor(mttr/2))+'分)</span>'+
+        '<div class="tier-bar-wrap"><div class="tier-bar" style="width:'+barLen(dMttr)+'%;background:#378ADD;"></div></div>'+
+        '<span style="min-width:90px;text-align:right;font-size:12px;font-weight:500;color:var(--color-text-info);">'+fmtDelta(dMttr)+'</span>'+
+      '</div>'+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--color-text-tertiary);">どちらのレバーが可用性改善に効くかを比較できます</div>';
+}
+render();
+</script>
