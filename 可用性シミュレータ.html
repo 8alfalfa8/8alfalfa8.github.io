@@ -1,0 +1,137 @@
+<style>
+.av-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:1rem 0;}
+.av-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.9rem 1rem;}
+.av-num{font-size:20px;font-weight:500;color:var(--color-text-primary);margin:4px 0 0;line-height:1.2;}
+.av-lbl{font-size:11px;color:var(--color-text-secondary);}
+.tier-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
+.tier-row:last-child{border-bottom:none;}
+.tier-name{min-width:72px;font-weight:500;color:var(--color-text-primary);}
+.tier-pct{min-width:64px;color:var(--color-text-secondary);}
+.tier-bar-wrap{flex:1;height:8px;border-radius:4px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);overflow:hidden;}
+.tier-bar{height:100%;border-radius:4px;}
+.tier-val{min-width:80px;text-align:right;color:var(--color-text-primary);}
+.highlight-row{background:var(--color-background-info);border-radius:var(--border-radius-md);padding:10px 12px;margin:4px 0;}
+.highlight-row .tier-name{color:var(--color-text-info);}
+.ctl{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;}
+.ctl-lbl{min-width:60px;color:var(--color-text-secondary);}
+.ctl-val{min-width:48px;font-weight:500;color:var(--color-text-primary);}
+</style>
+
+<div class="ctl">
+  <span class="ctl-lbl">表示単位</span>
+  <select id="unit-sel" onchange="render()" style="font-size:13px;padding:4px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);">
+    <option value="month">月間</option>
+    <option value="year">年間</option>
+    <option value="week">週間</option>
+  </select>
+  <span class="ctl-lbl" style="margin-left:16px;">ハイライト</span>
+  <select id="hl-sel" onchange="render()" style="font-size:13px;padding:4px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);">
+    <option value="9990">99.9%（スリーナイン）</option>
+    <option value="9999">99.99%（フォーナイン）</option>
+    <option value="99999">99.999%（ファイブナイン）</option>
+    <option value="9900">99%（ツーナイン）</option>
+  </select>
+</div>
+
+<div class="av-grid" id="summary-cards"></div>
+<div id="tier-table"></div>
+
+<div style="margin-top:1.5rem;">
+  <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px;">ダウンタイム比較（対数スケール — 分）</div>
+  <div style="position:relative;height:200px;">
+    <canvas id="bar-chart"></canvas>
+  </div>
+</div>
+
+<div style="margin-top:1.5rem;display:flex;flex-wrap:wrap;gap:10px;">
+  <button onclick="sendPrompt('99.9%と99.99%を達成するために必要な冗長構成の違いを教えて')">冗長構成の違い ↗</button>
+  <button onclick="sendPrompt('フォーナイン達成に必要な計画メンテナンス設計を教えて')">メンテナンス設計 ↗</button>
+  <button onclick="sendPrompt('可用性をMTBFとMTTRから計算する方法を教えて')">MTBF・MTTR換算 ↗</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var tiers=[
+  {label:'99%',     pct:99,      nines:'ツーナイン'},
+  {label:'99.5%',   pct:99.5,    nines:''},
+  {label:'99.9%',   pct:99.9,    nines:'スリーナイン'},
+  {label:'99.95%',  pct:99.95,   nines:''},
+  {label:'99.99%',  pct:99.99,   nines:'フォーナイン'},
+  {label:'99.999%', pct:99.999,  nines:'ファイブナイン'},
+];
+var barChart=null;
+
+function downMin(pct,unit){
+  var total={year:525600,month:43800,week:10080}[unit];
+  return (1-pct/100)*total;
+}
+function fmt(m){
+  if(m<1)return Math.round(m*60)+'秒';
+  if(m<60)return m.toFixed(1)+'分';
+  if(m<1440)return (m/60).toFixed(1)+'時間';
+  return (m/1440).toFixed(1)+'日';
+}
+function barColor(pct){
+  if(pct>=99.999)return '#1D9E75';
+  if(pct>=99.99)return '#378ADD';
+  if(pct>=99.9)return '#EF9F27';
+  if(pct>=99.5)return '#D85A30';
+  return '#E24B4A';
+}
+
+function render(){
+  var unit=document.getElementById('unit-sel').value;
+  var hlKey=parseInt(document.getElementById('hl-sel').value);
+  var hlPct=hlKey/100;
+  var hlTier=tiers.find(function(t){return Math.round(t.pct*1000)===Math.round(hlPct*1000);});
+  var selectedMin=hlTier?downMin(hlTier.pct,unit):0;
+  var unitLabel={year:'年間',month:'月間',week:'週間'}[unit];
+  var errRate=hlTier?(100-hlTier.pct).toFixed(3).replace(/0+$/,'').replace(/\.$/,'')+'%':'—';
+
+  var cmpPct=hlPct>=99.99?99.9:99;
+  var cmpMin=downMin(cmpPct,unit);
+  var diff=fmt(cmpMin-selectedMin);
+  var cmpLabel=hlPct>=99.99?'99.9%との差':'99%との差';
+
+  document.getElementById('summary-cards').innerHTML=
+    '<div class="av-card"><div class="av-lbl">選択中の可用性</div><div class="av-num">'+(hlTier?hlTier.label:'—')+'</div></div>'+
+    '<div class="av-card"><div class="av-lbl">'+unitLabel+'ダウンタイム</div><div class="av-num">'+fmt(selectedMin)+'</div></div>'+
+    '<div class="av-card"><div class="av-lbl">許容エラー率</div><div class="av-num">'+errRate+'</div></div>'+
+    '<div class="av-card"><div class="av-lbl">'+cmpLabel+'（'+unitLabel+'）</div><div class="av-num">'+diff+'</div></div>';
+
+  var maxMin=downMin(tiers[0].pct,unit);
+  document.getElementById('tier-table').innerHTML=tiers.map(function(t){
+    var dm=downMin(t.pct,unit);
+    var isHl=hlTier&&Math.round(t.pct*1000)===Math.round(hlTier.pct*1000);
+    var barW=Math.max(1,Math.log10(dm+0.01)/Math.log10(maxMin+0.01)*100);
+    return '<div class="tier-row'+(isHl?' highlight-row':'')+'">'+
+      '<span class="tier-name">'+t.label+'</span>'+
+      '<span class="tier-pct" style="font-size:11px;color:var(--color-text-tertiary)">'+t.nines+'</span>'+
+      '<div class="tier-bar-wrap"><div class="tier-bar" style="width:'+barW.toFixed(1)+'%;background:'+barColor(t.pct)+'"></div></div>'+
+      '<span class="tier-val">'+fmt(dm)+'</span>'+
+      '</div>';
+  }).join('');
+
+  var data=tiers.map(function(t){return downMin(t.pct,unit);});
+  var colors=tiers.map(function(t){return barColor(t.pct);});
+  var isDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+  var tickColor=isDark?'#888780':'#73726c';
+  if(barChart)barChart.destroy();
+  barChart=new Chart(document.getElementById('bar-chart'),{
+    type:'bar',
+    data:{labels:tiers.map(function(t){return t.label;}),datasets:[{data:data,backgroundColor:colors,borderRadius:4,borderSkipped:false}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmt(c.raw);}}}},
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:11}}},
+        y:{type:'logarithmic',grid:{color:gridColor},ticks:{color:tickColor,font:{size:11},callback:function(v){
+          if([0.01,0.1,1,10,100,1000,10000].indexOf(v)>=0)return fmt(v);return null;
+        }}}
+      }
+    }
+  });
+}
+render();
+</script>
