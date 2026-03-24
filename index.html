@@ -1,9 +1,284 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="refresh" content="0;URL='https://8alfalfa8.github.io/README.md'" />
-  </head>
-  <body>
-    <p>リダイレクト中... <a href="https://8alfalfa8.github.io/README.md">READMEはこちら</a></p>
-  </body>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>プロジェクト　ドキュメント</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="/usr/share/javascript/mathjax/MathJax.js"
+  type="text/javascript"></script>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">プロジェクト　ドキュメント</h1>
+</header>
+<h1 id="開発資料-技術情報-実務メモ">開発資料 ＆ 技術情報 ＆
+実務メモ</h1>
+<p>本リポジトリは、<strong>8alfalfa8</strong>
+により作成された文書・資料を含んでいます。</p>
+<hr />
+<h2 id="閲覧準備markdown-viewer-のインストール">閲覧準備：Markdown
+Viewer のインストール</h2>
+<p>本リポジトリのドキュメント（Markdown記法）をブラウザで正しく閲覧し、図解（Mermaid）を表示させるために、ブラウザ拡張機能
+<strong>「Markdown Viewer」</strong>
+のインストールと設定を推奨しています。</p>
+<h3 id="インストール">1. インストール</h3>
+<p>お使いのブラウザに合わせて、以下のリンクからインストールしてください。</p>
+<ul>
+<li><strong>Chrome / Edge</strong>: <a
+href="https://chrome.google.com/webstore/detail/markdown-viewer/ckkdlimhmcedbflnpeebnljnphakjden">Markdown
+Viewer (Chrome Web Store)</a></li>
+<li><strong>Firefox</strong>: <a
+href="https://addons.mozilla.org/en-US/firefox/addon/markdown-viewer/">Markdown
+Viewer (Firefox Add-ons)</a></li>
+</ul>
+<h3 id="ローカルファイルへのアクセス許可必須">2.
+ローカルファイルへのアクセス許可（必須）</h3>
+<p>PC上のファイルをブラウザで開くために、以下の設定を行ってください。</p>
+<ol type="1">
+<li>ブラウザの拡張機能アイコン（パズルマーク）から <strong>[Markdown
+Viewer]</strong> &gt;
+<strong>[詳細]</strong>（または拡張機能の管理）を開きます。</li>
+<li><strong>「ファイルの URL へのアクセスを許可する」</strong> を
+<strong>ON</strong> にします。</li>
+</ol>
+<h3 id="図解mermaidと数式latexの有効化">3.
+図解（Mermaid）と数式（LaTeX）の有効化</h3>
+<p>ドキュメント内のチャートを表示するために必要です。</p>
+<ol type="1">
+<li>Markdown Viewer のオプション（⚙アイコン）を開きます。</li>
+<li>左メニューの <strong>[Compiler]</strong> を選択します。</li>
+<li>以下の2項目にチェックを入れてください。
+<ul>
+<li><strong>[Mermaid]</strong>:
+チャートや図解を表示するために必要です。</li>
+<li><strong>[MathJax]</strong>: <span
+class="math inline">\(E=mc^2\)</span>
+などの数式（LaTeX）を表示するために必要です。</li>
+</ul></li>
+</ol>
+<p>設定完了後、この <code>README.md</code>
+ファイルをブラウザにドラッグ＆ドロップすることで、整形されたレイアウトで閲覧可能になります。</p>
+<hr />
+<h2 id="ライセンス">📄 ライセンス</h2>
+<p>このリポジトリの内容は <a
+href="https://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND
+4.0 ライセンス</a> のもとで提供されています。</p>
+<ul>
+<li>✅ 著作表示すれば転載可</li>
+<li>❌ 商用利用禁止</li>
+<li>❌ 改変・二次配布禁止</li>
+</ul>
+<h2 id="利用希望">📬 利用希望</h2>
+<p>商用利用や改変等を希望する場合は、著作権者（8alfalfa8）までご連絡ください。</p>
+<hr />
+<!-- START_TREE -->
+<h2 id="プロジェクト構成">プロジェクト構成</h2>
+<p>├── 04_インフラ/<br />
+│         └── 設計/<br />
+│                   └── img/<br />
+│                             ├── <a
+href="04_%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9/%E8%A8%AD%E8%A8%88/img/MTBF%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF.html">MTBFシミュレータ.html</a><br />
+│                             ├── <a
+href="04_%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9/%E8%A8%AD%E8%A8%88/img/MTBF%E7%AD%89%E9%AB%98%E7%B7%9A.html">MTBF等高線.html</a><br />
+│                             ├── <a
+href="04_%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9/%E8%A8%AD%E8%A8%88/img/MTTR%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF.html">MTTRシミュレータ.html</a><br />
+│                             ├── <a
+href="04_%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9/%E8%A8%AD%E8%A8%88/img/RPO%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF.html">RPOシミュレータ.html</a><br />
+│                             ├── <a
+href="04_%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9/%E8%A8%AD%E8%A8%88/img/RTO%E5%88%86%E6%9E%90%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF.html">RTO分析シミュレータ.html</a><br />
+│                             ├── <a
+href="04_%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9/%E8%A8%AD%E8%A8%88/img/%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%90%E3%82%B8%E3%82%A7%E3%83%83%E3%83%88%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF.html">エラーバジェットシミュレータ.html</a><br />
+│                             └── <a
+href="04_%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9/%E8%A8%AD%E8%A8%88/img/%E5%8F%AF%E7%94%A8%E6%80%A7%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF.html">可用性シミュレータ.html</a><br />
+├── <a href="README.md">README.md</a><br />
+└── <a href="index.html">index.html</a></p>
+<p>3 directories, 9 files<br />
+<!-- END_TREE --></p>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['2795', '2795'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: {
+      ignoreHtmlClass: 'tex2jax_ignore',
+      processHtmlClass: 'tex2jax_process'
+    }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default'
+  });
+</script>
+<style>
+  /* 見栄えを良くするための最小限のスタイル */
+  body { font-family: sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 2rem; color: #333; }
+  pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; border-radius: 5px; }
+  code { font-family: monospace; background: #eee; padding: 0.2rem 0.4rem; border-radius: 3px; }
+</style>
+</body>
 </html>
